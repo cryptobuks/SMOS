@@ -181,25 +181,30 @@ tsdiag(dlm1Filt)
 i=1
 y=pix.long[[i]]
 y.meanadj<-y$tau-mean(pix.long[[i]]$tau,na.rm=TRUE)
+y.meanadjfix<-y.meanadj
 
-p=4 #number of rows of W
-a1<-2
-b1<-0.0001
-a2<-2
-b2<-0.001
+
+a1<-1
+b1<-10
+
+a2<-1
+b2<-10
 #starting values
 psi1<-1
 psi2<-1
 mod_level<-dlmModTrig(s=276,q=2,dV=1/psi1,dW=1/psi2)
-mc<-1000
+mc<-3500
 burn<-500
 gibbsV<-numeric(mc)
-gibbsW<-matrix(0,nrow=mc,ncol=p)
+gibbsW<-numeric(mc)
 n<-length(y.meanadj)
 gibbsTheta<-array(0,dim=c(n+1,4,mc))
 sh1<- a1+n/2
-sh2<- a2+n/2
+sh2<-a2+2*n
 set.seed(10)
+
+#find NA values
+y.na <- which(is.na(y.meanadj))
 
 for (it in 1:mc){
   #draw the states: FFBS
@@ -207,50 +212,66 @@ for (it in 1:mc){
   level<-dlmBSample(filt)
   gibbsTheta[,,it]<-level
   
-  #fill in missing values
-  y.na <- which(is.na(y.meanadj))
+  #fill in missing values of y_t; perhaps impute with predicted y_t?
   state<-mod_level$FF%*%t(level[-1,])
-  l=is.na(y.meanadj)
-  test=rnorm(length(y.na),state[y.na],sd=sqrt(1/psi1))
-  y.meanadj[y.na]=test
+  impute=rnorm(length(y.na),state[y.na],sd=sqrt(1/psi1))
+  y.meanadj[y.na]=impute
   
   #draw obs precision
-  rate<- b1+ crossprod(y.meanadj-drop((mod_level$FF%*%t(level[-1,]))))*.5
-  psi1<-rgamma(1,shape=sh1,rate=rate)
+  y.center<-y.meanadj - tcrossprod(level[-1, , drop = FALSE], mod_level$FF)
+  SSy <- drop(crossprod(y.center))
+  #rate<- b1+ crossprod(y.meanadj-drop((mod_level$FF%*%t(level[-1,]))))*.5
+  rate1<-b1+.5*SSy
+  psi1<-rgamma(1,shape=sh1,rate=rate1)
   
   #draw state precision
-  #theta.center<-level[-1,]-(level[-(n+1),])%*%t(mod_level$GG)
+  theta.center2<-level[-1,]-(level[-(n+1),])%*%t(mod_level$GG)
+  SS2<-(diag(crossprod(theta.center2)))
   #tt.theta.center<-t(level[-1,]-(level[-(n+1),])%*%t(mod_level$GG))
-  theta.center<-(level[-1,]-(level[-(n+1),])%*%t(mod_level$GG))%*%t(level[-1,]-(level[-(n+1),])%*%t(mod_level$GG))
-  SS_theta<-sum(diag(theta.center))
-  rate<-b2 + 0.5*SS_theta
-  psi2<- rgamma(1, shape = sh2, rate = rate)
+  #theta.center<-((level[-1,]-(level[-(n+1),])%*%t(mod_level$GG)))%*%(t(level[-1,]-(level[-(n+1),])%*%t(mod_level$GG)))
+  #SS_theta<-sum(diag(theta.center))
+  rate2<-b2 + 0.5*(sum(SS2))
+  psi2<- rgamma(1, shape = sh2, rate = rate2)
+  #print(cbind(psi1,psi2))
   
-  #save and update 
+  #update 
   V(mod_level)<-1/psi1
   diag(W(mod_level))<-1/psi2
+  #save
   gibbsV[it]<-1/psi1
-  gibbsW[it,]<-1/psi2
+  gibbsW[it]<-1/psi2
+  y.meanadj<-y.meanadjfix
 }
 
 #Plot Results
 use<-mc-burn
 from<-.05*use
 
-plot(ergMean(gibbsV[-(1:burn)],from),type="l",xaxt="n",xlab="",ylab="V")
+par(mfrow=c(1,1))
+plot(ergMean(gibbsW[-(1:burn)],from),type="l",xaxt="n",ylab="W",xlab="iter")
 at<-pretty(c(0,use),n=3)
 at<-at[at>=from]
 axis(1,at=at-from,labels=format(at))
 
 #Look at ACF
-acf(sqrt(gibbsV[-(1:burn)]),main="")
-
+acf(sqrt(gibbsV[-(1:burn)]),main="ACF for V")
+acf(sqrt(gibbsW[-(1:burn)]),main="ACF for W")
 
 mcmcMean(gibbsV[-(1:burn)])
-mcmcMean(gibbsW[-(1:burn),])
+mcmcMean(gibbsW[-(1:burn)])
+
+#Plot Means
+gibbsTheta2<-gibbsTheta[-1,,-c(1:500)]
+gibbsTheta3<-gibbsTheta2[,1,]+gibbsTheta2[,3,]
+thetaMean<-ts(apply(gibbsTheta3,1,mean),start=1, end=1656,frequency = 1)
+LprobLim<-ts(apply(gibbsTheta3,1,quantile,probs=.025),start=1,end=1656,frequency=1)
+UprobLim<-ts(apply(gibbsTheta3,1,quantile,probs=.975),start=1,end=1656,frequency=1)
+plot(thetaMean,xlab="",ylab=expression(tau),ylim=c(-.75,.75),xaxt="n")
+lines(LprobLim,lty=3);lines(UprobLim,lty=3)
+
 
 #plot results
-plot(y.meanadj, col = "seagreen",ylab=expression(tau),main="Mean Adjusted Pix 194406: One Step Ahead Prediction (1,2,3 Harmonics)",xaxt="n")
+points(y.meanadj, col = "seagreen",ylab=expression(tau),main="Mean Adjusted Pix 194406",xaxt="n")
 abline(v=seq(0,1656,by=276))
 color <- rgb(190, 190, 190, alpha=80, maxColorValue=255)
 rect(276,-1,552,1,col=color)
@@ -260,4 +281,4 @@ axis(1, at=c(0,276,552,828,1104,1380,1656), labels=c("2010", "2011", "2012","201
 
 
 #Try dlmGibbsDIG
-gibbsOut<-dlmGibbsDIG(y.meanadj,mod=dlmModTrig(s=276,q=2),a.y = 1,b.y=10,a.theta=1,b.theta = 10,n.sample=10)
+gibbsOut<-dlmGibbsDIG(y.meanadj,mod=dlmModTrig(s=276,q=2),a.y = 1,b.y=10,a.theta=1,b.theta = 10,n.sample=1000)
