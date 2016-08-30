@@ -177,48 +177,60 @@ qqnorm(residuals(dlm1Filt,sd=FALSE))
 qqline(residuals(dlm1Filt,sd=FALSE))
 tsdiag(dlm1Filt)
 
-#Bayes Approach using pg. 166; DLMGibbs package doesn't work with missing values
+#Bayes Approach using pg. 166; Dropping Missing y's in sigma_v calculation
+
+#Select Pixel and Center It
 i=1
 y=pix.long[[i]]
 y.meanadj<-y$tau-mean(pix.long[[i]]$tau,na.rm=TRUE)
 y.meanadjfix<-y.meanadj
 
-
+#IG Gamma Prior for V
 a1<-1
 b1<-10
-
+#IG Gamma Prior for W
 a2<-1
 b2<-10
-#starting values
+
+#Starting values
 psi1<-1
 psi2<-1
+
+#Assume Pix has 276 days per cycle
 mod_level<-dlmModTrig(s=276,q=2,dV=1/psi1,dW=1/psi2)
-mc<-3500
-burn<-500
-gibbsV<-numeric(mc)
-gibbsW<-numeric(mc)
+n.sample<-1000
+thin=10
+burn<-100
+every<-thin+1
+mc<-n.sample*every
+gibbsV<-numeric(n.sample)
+gibbsW<-numeric(n.sample)
+gibbsTheta<-array(0,dim=c(n+1,4,n.sample))
+
+#find non missing values of y_t
+y.not.na <- which(!is.na(y.meanadj))
 n<-length(y.meanadj)
-gibbsTheta<-array(0,dim=c(n+1,4,mc))
-sh1<- a1+n/2
+t.star<-length(y.not.na)
+sh1<- a1+t.star/2
 sh2<-a2+2*n
+
+
 set.seed(10)
-
-#find NA values
-y.na <- which(is.na(y.meanadj))
-
+it.save<-0
 for (it in 1:mc){
   #draw the states: FFBS
   filt<-dlmFilter(y.meanadj,mod_level)
   level<-dlmBSample(filt)
-  gibbsTheta[,,it]<-level
   
   #fill in missing values of y_t; perhaps impute with predicted y_t?
-  state<-mod_level$FF%*%t(level[-1,])
-  impute=rnorm(length(y.na),state[y.na],sd=sqrt(1/psi1))
-  y.meanadj[y.na]=impute
+  state<-tcrossprod(level[-1, , drop = FALSE], mod_level$FF)
+  state2<-state[y.not.na]
+  #impute=rnorm(length(y.na),state[y.na],sd=sqrt(1/psi1))
+  #y.meanadj[y.na]=impute
   
+  #Only Sum over Observed Y's
   #draw obs precision
-  y.center<-y.meanadj - tcrossprod(level[-1, , drop = FALSE], mod_level$FF)
+  y.center<-y.meanadj[y.not.na] - state2
   SSy <- drop(crossprod(y.center))
   #rate<- b1+ crossprod(y.meanadj-drop((mod_level$FF%*%t(level[-1,]))))*.5
   rate1<-b1+.5*SSy
@@ -238,13 +250,17 @@ for (it in 1:mc){
   V(mod_level)<-1/psi1
   diag(W(mod_level))<-1/psi2
   #save
-  gibbsV[it]<-1/psi1
-  gibbsW[it]<-1/psi2
+  if (!(it%%every)) {
+    it.save <- it.save + 1
+    gibbsV[it.save]<-1/psi1
+    gibbsW[it.save]<-1/psi2
+    gibbsTheta[,,it.save]<-level
+  }
   y.meanadj<-y.meanadjfix
 }
 
 #Plot Results
-use<-mc-burn
+use<-n.sample-burn
 from<-.05*use
 
 par(mfrow=c(1,1))
@@ -261,7 +277,7 @@ mcmcMean(gibbsV[-(1:burn)])
 mcmcMean(gibbsW[-(1:burn)])
 
 #Plot Means
-gibbsTheta2<-gibbsTheta[-1,,-c(1:500)]
+gibbsTheta2<-gibbsTheta[-1,,-c(1:10)]
 gibbsTheta3<-gibbsTheta2[,1,]+gibbsTheta2[,3,]
 thetaMean<-ts(apply(gibbsTheta3,1,mean),start=1, end=1656,frequency = 1)
 LprobLim<-ts(apply(gibbsTheta3,1,quantile,probs=.025),start=1,end=1656,frequency=1)
