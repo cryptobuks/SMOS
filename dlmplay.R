@@ -198,9 +198,9 @@ psi2<-1
 
 #Assume Pix has 276 days per cycle
 mod_level<-dlmModTrig(s=276,q=2,dV=1/psi1,dW=1/psi2)
-n.sample<-1000
+n.sample<-100
 thin=10
-burn<-100
+burn<-10
 every<-thin+1
 mc<-n.sample*every
 gibbsV<-numeric(n.sample)
@@ -222,41 +222,37 @@ for (it in 1:mc){
   filt<-dlmFilter(y.meanadj,mod_level)
   level<-dlmBSample(filt)
   
-  #fill in missing values of y_t; perhaps impute with predicted y_t?
+  #drop missing values of y_t
   state<-tcrossprod(level[-1, , drop = FALSE], mod_level$FF)
-  state2<-state[y.not.na]
+  state.nomis<-state[y.not.na]
   #impute=rnorm(length(y.na),state[y.na],sd=sqrt(1/psi1))
   #y.meanadj[y.na]=impute
   
-  #Only Sum over Observed Y's
-  #draw obs precision
-  y.center<-y.meanadj[y.not.na] - state2
-  SSy <- drop(crossprod(y.center))
+  #draw obs precision; only sum over obs y's
+  y.center<-y.meanadj[y.not.na] - state.nomis
+  SSEy <- drop(crossprod(y.center))
   #rate<- b1+ crossprod(y.meanadj-drop((mod_level$FF%*%t(level[-1,]))))*.5
-  rate1<-b1+.5*SSy
+  rate1<-b1+.5*SSEy
   psi1<-rgamma(1,shape=sh1,rate=rate1)
   
   #draw state precision
-  theta.center2<-level[-1,]-(level[-(n+1),])%*%t(mod_level$GG)
-  SS2<-(diag(crossprod(theta.center2)))
+  theta.center<-level[-1,]-(level[-(n+1),])%*%t(mod_level$GG)
+  SSE.theta<-(diag(crossprod(theta.center)))
   #tt.theta.center<-t(level[-1,]-(level[-(n+1),])%*%t(mod_level$GG))
   #theta.center<-((level[-1,]-(level[-(n+1),])%*%t(mod_level$GG)))%*%(t(level[-1,]-(level[-(n+1),])%*%t(mod_level$GG)))
-  #SS_theta<-sum(diag(theta.center))
-  rate2<-b2 + 0.5*(sum(SS2))
+  rate2<-b2 + 0.5*(sum(SSE.theta))
   psi2<- rgamma(1, shape = sh2, rate = rate2)
-  #print(cbind(psi1,psi2))
   
   #update 
   V(mod_level)<-1/psi1
   diag(W(mod_level))<-1/psi2
-  #save
+  #save samples
   if (!(it%%every)) {
     it.save <- it.save + 1
     gibbsV[it.save]<-1/psi1
     gibbsW[it.save]<-1/psi2
     gibbsTheta[,,it.save]<-level
   }
-  y.meanadj<-y.meanadjfix
 }
 
 #Plot Results
