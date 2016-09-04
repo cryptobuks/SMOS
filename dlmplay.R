@@ -3,6 +3,13 @@ library(dlm)
 #Look at 5 Pixels (from Hornbuckle): 1, 10* (275 days),20,27,30
 horn=c(1,20,27,30)
 
+#Number of NA Values Per Pixel 
+l=NULL
+for (i in 1:30){
+  y=pix.long[[i]]
+  l[i]<-(sum(is.na(y)))
+}
+
 #276 day pix
 pixall=seq(1,30,1)
 xday<-c(5,7,8,10,12,17,18,23,25)
@@ -152,9 +159,9 @@ lines(dropFirst(dlm1Filt$f), pch = 20, col = "blue")
 #m is the filtered distributions of state vector Theta_t given y1:t
 #a is the one step ahead predictive distribution of state vector
 
-lines(dropFirst(dlm1Filt$m[,1]), type = 'o', pch = 20, col = "red")
+lines(dropFirst(dlm1Filt2$m[,1]), type = 'o', pch = 20, col = "red")
 lines(dropFirst(dlm1Filt$m[,2]), type = 'o', pch = 20, col = "blue")
-lines(dropFirst(dlm1Filt$m[,3]), type = 'o', pch = 20, col = "pink")
+lines(dropFirst(dlm1Filt2$m[,3]), type = 'o', pch = 20, col = "pink")
 lines(dropFirst(dlm1Filt$m[,4]), type = 'o', pch = 20, col = "yellow")
 lines(dropFirst(dlm1Filt$m[,5]), type = 'o', pch = 20, col = "orange")
 lines(dropFirst(dlm1Filt$m[,6]), type = 'o', pch = 20, col = "green")
@@ -162,12 +169,17 @@ lines(dropFirst(dlm1Filt$m[,6]), type = 'o', pch = 20, col = "green")
 
 #Dlm Smooth (Only Interested in the Odd States)
 dlm1Smooth <- dlmSmooth(y$meanadj, dlm1)
-dlm1Smooth2 <- dlmSmooth(y$meanadj, dlm2)
+dlm1Smooth2 <- dlmSmooth(y.meanadj, dlm2)
 
-plot(y$meanadj, col = "seagreen",ylab=expression(tau),main="Mean Adjusted Pix 194406: Smoothed State Space (3 Harmonics)")
-lines(dropFirst(dlm1Smooth$s[,1]), type = 'o', pch = 20, col = "red")
+#Combine Harmonics
+h1<-dropFirst(dlm1Smooth2$s[,1])
+h2<-dropFirst(dlm1Smooth2$s[,3])
+smoothh<-h1+h2
+
+plot(y.meanadj, col = "seagreen",ylab=expression(tau),main="Mean Adjusted Pix 194406: Smoothed State Space (3 Harmonics)")
+lines(dropFirst(dlm1Smooth2$s[,1]), type = 'o', pch = 20, col = "red")
 #lines(dropFirst(dlm1Smooth$s[,2]), type = 'o', pch = 20, col = "blue")
-lines(dropFirst(dlm1Smooth$s[,3]), type = 'o', pch = 20, col = "pink")
+lines(dropFirst(dlm1Smooth2$s[,3]), type = 'o', pch = 20, col = "pink")
 #lines(dropFirst(dlm1Smooth$s[,4]), type = 'o', pch = 20, col = "yellow")
 lines(dropFirst(dlm1Smooth$s[,5]), type = 'o', pch = 20, col = "orange")
 #lines(dropFirst(dlm1Smooth$s[,6]), type = 'o', pch = 20, col = "green")
@@ -198,18 +210,18 @@ psi2<-1
 
 #Assume Pix has 276 days per cycle
 mod_level<-dlmModTrig(s=276,q=2,dV=1/psi1,dW=1/psi2)
-n.sample<-100
+n.sample<-1500
 thin=10
-burn<-10
+burn<-100
 every<-thin+1
 mc<-n.sample*every
 gibbsV<-numeric(n.sample)
 gibbsW<-numeric(n.sample)
+n<-length(y.meanadj)
 gibbsTheta<-array(0,dim=c(n+1,4,n.sample))
 
 #find non missing values of y_t
 y.not.na <- which(!is.na(y.meanadj))
-n<-length(y.meanadj)
 t.star<-length(y.not.na)
 sh1<- a1+t.star/2
 sh2<-a2+2*n
@@ -260,7 +272,7 @@ use<-n.sample-burn
 from<-.05*use
 
 par(mfrow=c(1,1))
-plot(ergMean(gibbsW[-(1:burn)],from),type="l",xaxt="n",ylab="W",xlab="iter")
+plot(ergMean(gibbsV[-(1:burn)],from),type="l",xaxt="n",ylab="V",xlab="iter")
 at<-pretty(c(0,use),n=3)
 at<-at[at>=from]
 axis(1,at=at-from,labels=format(at))
@@ -273,7 +285,7 @@ mcmcMean(gibbsV[-(1:burn)])
 mcmcMean(gibbsW[-(1:burn)])
 
 #Plot Means
-gibbsTheta2<-gibbsTheta[-1,,-c(1:10)]
+gibbsTheta2<-gibbsTheta[-1,,-c(1:burn)]
 gibbsTheta3<-gibbsTheta2[,1,]+gibbsTheta2[,3,]
 thetaMean<-ts(apply(gibbsTheta3,1,mean),start=1, end=1656,frequency = 1)
 LprobLim<-ts(apply(gibbsTheta3,1,quantile,probs=.025),start=1,end=1656,frequency=1)
