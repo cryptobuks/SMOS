@@ -14,11 +14,11 @@ inits2<-list(c(0,0,0,0,0,0),c(1,1,1,1,1,1),c(1,0,1,0,1,0),c(0,1,0,1,0,1),c(10,0,
 inits<-list(c(0,0,0,0),c(1,1,1,1),c(1,0,1,0),c(0,1,0,1),c(10,0,1,0),c(1,0,10,0),c(1,10,1,0),c(1,0,1,10))
 set.seed(353)
 for (i in 1:4){
-m1=dlmModTrig(s=276,q=3,dV=1,dW=inits2[[i]],m0=c(0,0,0,0,0,0),C0=diag(c(1,1,1,1,1,1)))
+m1=dlmModTrig(s=276,q=2,dV=1,dW=inits[[i]],m0=c(0,0,0,0),C0=diag(c(1,1,1,1)))
 #m1=dlmModTrig(s=276,q=2,dV=0,dW=inits[[i]],m0=c(0,0,0,0),C0=diag(c(1,1,1,1)))
 o1 = dlmForecast(m1,1656, sampleNew=1)
 dat = data.frame(y = as.numeric(o1$newObs[[1]]))
-plot(dat$y,type="l",ylab="y",main=paste("W=",inits2[i]))
+plot(dat$y,type="l",ylab="y",main=paste("W=",inits[i]))
 abline(v=seq(0,1656,by=276))
 color <- rgb(190, 190, 190, alpha=80, maxColorValue=255)
 rect(276,-500,552,500,col=color)

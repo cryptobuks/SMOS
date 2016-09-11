@@ -58,6 +58,17 @@ mat Ht2(mat C, mat G, mat W) {
   return(inv(inv(C) + G.t()*inv(W)*G));
 }
 
+// [[Rcpp::export]]
+int nomiss(mat y) {
+  int T = y.n_rows;
+  int sum=0;
+  Rcout << sum << std::endl;
+  for (int i=0; i<T; i++){
+    sum += !R_IsNA(y[i]);
+  }
+  return sum;
+}
+
 //////////////////////////////////////////////////////////////////////
 // Drawing the Multivariate Normal
 //////////////////////////////////////////////////////////////////////
@@ -374,7 +385,8 @@ List mcmc_seas_IG(
 // Conjugate IG priors
 // [[Rcpp::export]]
 List mcmc_local_seas(
-    int n_reps, 
+    int n_reps,
+    int thin,
     mat dat, 
     List initial_values,
     List prior,
@@ -402,15 +414,18 @@ List mcmc_local_seas(
   NumericVector keep_sigma_w(n_reps);
   
   int T = dat.n_rows;
+  int T2=nomiss(dat);
   int p = G.n_cols;
-  
+  int every = thin+1;
+  int mc = n_reps*every;
+  int save = 0;
   //reused during sampling
   List kalman;
   mat rate1, rate2;
   
-  double sh1 = a1 + T/2, sh2 = a2 + T*p/2;
+  double sh1 = a1 + T2/2, sh2 = a2 + T*p/2;
   
-  for (int i=0; i<n_reps; i++) {
+  for (int i=0; i<mc; i++) {
     kalman = KalmanFilter(dat, V, W, model); // Kalman Filter
     mat theta = FFBS(G, W, kalman, svd)[0]; // draw theta_0:T
     
@@ -431,9 +446,12 @@ List mcmc_local_seas(
     }
     
     // Update storage
-    keep_theta[i] = theta;
-    keep_sigma_e[i] = 1/psi1;
-    keep_sigma_w[i] = 1/psi2;  
+    if ((i%every==0)) {
+    keep_theta(save) = theta;
+    keep_sigma_e(save) = 1/psi1;
+    keep_sigma_w(save) = 1/psi2;  
+    save=save+1;
+    }
   }
   
   return List::create(
@@ -441,6 +459,7 @@ List mcmc_local_seas(
     Named("sigma2_e") = keep_sigma_e,
     Named("sigma2_w") = keep_sigma_w);
 }
+
 
 /*** R
 #Put R code Here

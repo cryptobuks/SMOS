@@ -2,6 +2,9 @@ library(dlm)
 
 #5,7,8,10,12,17,18,23,25 have 275 days per year
 
+#This Function Runs MLE and Plots the Smoothed Estimate for 2 Harmonic Model
+
+
 mod2h<-function(pix, days){
   i<-pix
   j<-days
@@ -28,3 +31,19 @@ mod2h<-function(pix, days){
   lines(smooth.sum,col = "red",lwd=2)
   return(cbind(dlm2$V,dlm2$W[1]))
 }
+
+pixall=seq(1,30,1)
+xday<-c(5,7,8,10,12,17,18,23,25)
+dayplus<-pixall[-xday]
+
+ratio=matrix(NA,nrow=30,ncol=2)
+for (i in 1:30){
+  if (i %in% xday){
+  mod<-mod2h(i,275)}
+  else{
+    mod<-mod2h(i,276)
+  }
+  sig<-mod[2]/mod[1]
+  ratio[i,1]<-i
+  ratio[i,2]<-sig
+  }

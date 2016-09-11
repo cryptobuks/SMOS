@@ -69,24 +69,62 @@ mcmc.ig<-function(i,a1,b1,a2,b2,psi1,psi2,days,reps,thin,burn){
 
 #Cpp Version
 library(Rcpp)
+library(dlm)
+library(coda)
 sourceCpp("gibbscpp.cpp")
 
-prior=list(a1=1,a2=10,b1=1,b2=10)
+#gamma (1,1) prior
+prior=list(a1=1,a2=1,b1=1,b2=1)
+#starting values
 initial=list(psi1=1,psi2=1)
 model_2harm<-dlmModTrig(s=276,q=2,dV=1/initial$psi1,dW=1/initial$psi2)
-y=pix.long[[1]]
+y=pix.long[[30]]
 dat<-y$tau-mean(pix.long[[1]]$tau,na.rm=TRUE)
 dat<-matrix(dat,1656)
-l=mcmc_local_seas(2500,dat,initial,prior,model_2harm)
+l=mcmc_local_seas(2500,10,dat,initial,prior,model_2harm)
 
-#remove burn in of 100
-W=l[[3]][-c(1:100)]
+#Run 4 Chains with Different Starting Values
+ChainV=matrix(NA,nrow=2500,ncol=4)
+ChainW=matrix(NA,nrow=2500,ncol=4)
+Theta<-list()
+
+start<-list(c(psi1=1,psi2=1),c(psi1=.1,psi2=.1),c(psi1=10,psi2=10),c(psi1=10,psi2=20))
+for (i in 1:4){
+  initial<-start[[i]]
+  l=mcmc_local_seas(2500,10,dat,initial,prior,model_2harm)
+  ChainV[,i]<-l$sigma2_e
+  ChainW[,i]<-l$sigma2_w
+  Theta[i]<-l$theta
+}
+
+#Rhat for V 
+mc1=as.mcmc(ChainV[-c(1:500),1])
+mc2=as.mcmc(ChainV[-c(1:500),2])
+mc3=as.mcmc(ChainV[-c(1:500),3])
+mc4=as.mcmc(ChainV[-c(1:500),4])
+mclist = mcmc.list(mc1,mc2,mc3,mc4)
+gelman.diag(mclist, confidence = 0.95, transform=FALSE, autoburnin=TRUE,
+            multivariate=TRUE)
+
+#Rhat for W 
+mc1w=as.mcmc(ChainW[-c(1:500),1])
+mc2w=as.mcmc(ChainW[-c(1:500),2])
+mc3w=as.mcmc(ChainW[-c(1:500),3])
+mc4w=as.mcmc(ChainW[-c(1:500),4])
+mclistw = mcmc.list(mc1w,mc2w,mc3w,mc4w)
+gelman.diag(mclistw, confidence = 0.95, transform=FALSE, autoburnin=TRUE,
+            multivariate=TRUE)
+
+
+
+#remove burn in of 500
+W=l[[3]][-c(1:500)]
 W=l[[3]]
-V=l[[2]][-c(1:100)]
+V=l[[2]][-c(1:500)]
 V=l[[2]]
 
 #Plot Results
-burn=100
+burn=500
 use<-2500-burn
 from<-.05*use
 
@@ -102,5 +140,16 @@ l.sub2<-l.sub[-c(1:burn)]
 l.sub3<-lapply(l.sub2,function(x) x[,1]+x[,3])
 df <- data.frame(matrix(unlist(l.sub3), nrow=1656, byrow=F))
 m=apply(df, 1, mean)
-plot(m,type="l")
+l=apply(df, 1, quantile, probs = .025,  na.rm = TRUE)
+u=apply(df, 1, quantile, probs = .975,  na.rm = TRUE)
+plot(m,type="l",ylab="T",xlab="Year",xaxt="n",ylim=c(-.35,.35))
+lines(l,lty=3);lines(u,lty=3)
+points(dat, col = "seagreen",ylab=expression(tau),main="Mean Adjusted Pix 194406",xaxt="n")
+abline(v=seq(0,1656,by=276))
+color <- rgb(190, 190, 190, alpha=80, maxColorValue=255)
+rect(276,-1,552,1,col=color)
+rect(828,-1,1104,1,col=color)
+rect(1380,-1,1656,1,col=color)
+axis(1, at=c(0,276,552,828,1104,1380,1656), labels=c("2010", "2011", "2012","2013","2014","2015","2016"))
+
 
