@@ -40,7 +40,7 @@ S^*_{jt}&=-\text{sin}(t\omega_j)S_{j,t-1}+\text{cos}(t\omega_j)S^*_{j,t-1}\\
 \begin{equation*}
 \begin{align}
 \theta_t&=[S_{1t},S^*_{1t},S_{2t},S^*_{2t}], &\  F=[1,0,1,0] \\
- \omega_j&=\frac{2 \pi j}{s}, j=1,2, s=1 \dots 276
+ \omega_j&=\frac{2 \pi j}{s}, j=1,2, s=276
 \end{align}
 \end{equation}
 \begin{align*}
@@ -75,19 +75,32 @@ Each pixel has missing values, so $T^{*}$ represents the number of non-missing v
 
 
 
-\item \textit{MCMC:}\\
-We ran 4 chains with sample size of 2500 each, thinning every 10th sample, and considering the first 500 saved iterations as burn in.  A variety of starting values were tried.  The median of $\sigma^2_V$ is .0044 and the median of $\sigma^2_W$ is  and .0033, respectively.  That gives a signal to noise ratio of $W/V=0.756$.  The potential scale reduction factor, $\hat{R}$, was 1 for each posterior distribution.  The MLE for $\sigma^2_V$ is .0025 and the MLE of $\sigma^2_W$ is .000176, giving $W/V=0.069$.
+\item \textit{Simulation}\\
+Let's explore the effect of changing the evolution variance, $W$, on simulated values from a 2 and 3 harmonic DLM model.  In both cases we assume $\theta_0 \sim N_p(m_0,C_0)$.  Depending on the dimension, $m_0={0}$ and ${C_0}=\mathbb{{I}}$.  For both the 2 and 3 harmonic DLMs, we will fix $V=1$.  For each simulation, $s=276$ and $n=1656$.  We will vary the diagonal of the $W$ matrix, which controls the variance of the evolution parameters.  
+
 
 \begin{figure}[H]
-\caption{Trace Plot for Pix 194406 $\sigma^2_V$}
+\caption{Simulated 2 Harmonic}
 \centering
-\includegraphics[height=8cm]{harm2.1.pdf}
+\includegraphics[height=8cm]{harm2_1.pdf}
 \end{figure}
 
 \begin{figure}[H]
-\caption{Trace Plot for Pix 104406 $\sigma^2_W$}
+\caption{Simulated 2 Harmonic}
 \centering
-\includegraphics[height=8cm]{harm2.1.pdf}
+\includegraphics[height=8cm]{harm2_2.pdf}
+\end{figure}
+
+\begin{figure}[H]
+\caption{Simulated 3 Harmonic}
+\centering
+\includegraphics[height=8cm]{harm3_1.pdf}
+\end{figure}
+
+\begin{figure}[H]
+\caption{Simulated 3 Harmonic}
+\centering
+\includegraphics[height=8cm]{harm3_2.pdf}
 \end{figure}
 
 
